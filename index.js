@@ -1,5 +1,8 @@
 const http = require('http');
 const app = require('./configs');
+const { APPLICATION_PORT } = require('./utils/constantes');
 const server = http.createServer(app);
 
-server.listen(3000, () => console.log('Servidor rodando na porta 3000'));
+server.listen(APPLICATION_PORT, () => 
+    console.log(`Servidor rodando na porta ${APPLICATION_PORT}`)
+);
