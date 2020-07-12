@@ -1,0 +1,26 @@
+{
+  "name": "teste-backend-instruct",
+  "version": "1.0.0",
+  "description": "Código do teste técnico para a vaga remota de Backend Developer da Instruct",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jgsnat/teste-backend-instruct.git"
+  },
+  "author": "Jefferson Silva",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jgsnat/teste-backend-instruct/issues"
+  },
+  "homepage": "https://github.com/jgsnat/teste-backend-instruct#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  }
+}
