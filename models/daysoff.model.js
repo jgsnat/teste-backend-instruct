@@ -1,16 +1,20 @@
 const { Model, DataTypes } = require('sequelize');
 const { sequelizeInstance } = require('../configs/database');
 
-class DayOf extends Model {};
+class DaysOff extends Model {};
 
-DayOf.init(
+DaysOff.init(
     {
-        date: {
-            type: DataTypes.DATE('yyyy-MM-dd'),
+        day: {
+            type: DataTypes.STRING(2),
+            allowNull: false
+        },
+        month: {
+            type: DataTypes.STRING(2),
             allowNull: false
         },
         name: {
-            type: DataTypes.STRING(70),
+            type: DataTypes.STRING(50),
             allowNull: false
         },
         national: {
@@ -19,8 +23,10 @@ DayOf.init(
             defaultValue: false
         }
     }, {
-        sequelize: sequelizeInstance
+        sequelize: sequelizeInstance,
+        modelName: 'days_off',
+        freezeTableName: true
     }
 );
 
-module.exports = DayOf;
+module.exports = DaysOff;

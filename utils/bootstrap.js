@@ -1,28 +1,21 @@
 const States = require('../models/states.model');
 const Counties = require('../models/counties.model');
-const neatCsv = require('neat-csv');
-const fs = require('fs');
+const DaysOff = require('../models/daysoff.model');
+const { readFile } = require('.');
 
 const initDbStates = async () => {
     let savedStates = await States.findAll();
 
     if (savedStates.length === 0) {
-        await fs.readFile(`${__dirname}/estados-2019.csv`, async (err, data) => {
-            if (err) {
-                console.error(err);
-                return
-            }
+        let states = await readFile('estados-2019.csv');
     
-            let states = await neatCsv(data);
-    
-            for (state of states) {
-                States.create({ 
-                    prefix: state.prefix, 
-                    initials: state.initials, 
-                    name: state.name 
-                });
-            }
-        });
+        for (state of states) {
+            States.create({ 
+                prefix: state.prefix, 
+                initials: state.initials, 
+                name: state.name.trim() 
+            });
+        }
     }
 };
 
@@ -30,23 +23,38 @@ const initDbCounties = async () => {
     let savedCounties = await Counties.findAll();
     
     if (savedCounties.length == 0) {
-        await fs.readFile(`${__dirname}/municipios-2019.csv`, async (err, data) => {
-            if (err) {
-                console.error(err);
-                return
-            }
+        let counties = await readFile('municipios-2019.csv');
     
-            let counties = await neatCsv(data);
-    
-            for (county of counties) {
-                Counties.create({ 
-                    code: county.codigo_ibge, 
-                    name: county.nome 
-                });
-            }
-        });
+        for (county of counties) {
+            Counties.create({ 
+                code: county.codigo_ibge, 
+                name: county.nome.trim() 
+            });
+        }
     }
-}
+};
+
+const initDbDaysOff = async () => {
+    let savedDaysOff = await DaysOff.findAll();
+
+    if (savedDaysOff.length === 0) {
+        let daysOff = await readFile('feriados-nacionais.csv');
+    
+        for (dayOff of daysOff) {
+            let date = dayOff.data.split('/'); 
+            let day = date[0].trim();
+            let month = date[1].trim();
+            
+            DaysOff.create({
+                day,
+                month,
+                name: dayOff.nome.trim(),
+                national: true
+            });
+        }
+    }
+};
 
 exports.initDbStates = initDbStates;
 exports.initDbCounties = initDbCounties;
+exports.initDbDaysOff = initDbDaysOff;

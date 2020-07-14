@@ -1,5 +1,6 @@
 const { Model, DataTypes } = require('sequelize');
 const { sequelizeInstance } = require('../configs/database');
+const DaysOff = require('./daysoff.model');
 
 class States extends Model {};
 
@@ -24,5 +25,11 @@ States.init(
         modelName: 'state'
     }
 );
+
+DaysOff.belongsTo(States, {
+    as: 'states',
+    foreignKey: 'states_prefix',
+    targetKey: 'prefix'
+});
 
 module.exports = States;
