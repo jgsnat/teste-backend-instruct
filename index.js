@@ -1,6 +1,6 @@
 const http = require('http');
 const app = require('./configs');
-const { APPLICATION_PORT } = require('./utils/constantes');
+const { APPLICATION_PORT } = require('./utils/constant');
 const { sequelizeInstance } = require('./configs/database');
 const server = http.createServer(app);
 
