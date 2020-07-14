@@ -6,16 +6,17 @@ class Counties extends Model {};
 Counties.init(
     {
         code: {
-            type: DataTypes.INTEGER(7),
+            type: DataTypes.INTEGER,
             allowNull: false,
             primaryKey: true
         },
         name: {
-            type: DataTypes.STRING(45),
+            type: DataTypes.STRING(80),
             allowNull: false            
         }
     }, {
-        sequelize: sequelizeInstance
+        sequelize: sequelizeInstance,
+        modelName: 'counties'
     }
 );
 

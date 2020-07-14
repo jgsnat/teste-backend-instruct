@@ -6,7 +6,7 @@ class States extends Model {};
 States.init(
     {
         prefix: {
-            type: DataTypes.INTEGER(2),
+            type: DataTypes.INTEGER,
             allowNull: false,
             primaryKey: true
         },
@@ -20,7 +20,8 @@ States.init(
             allowNull: false
         }
     }, {
-        sequelize: sequelizeInstance
+        sequelize: sequelizeInstance,
+        modelName: 'state'
     }
 );
 
