@@ -26,11 +26,6 @@ class DaysOffService {
         const dayOffNational = await this.isDaysOffNational(day, month);
         if (dayOffNational) {
             return dayOffNational.name;    
-        } 
-
-        const dayMobileHoliday = await this.mobileHolidays(year, month, day);
-        if (dayMobileHoliday) {
-            return dayMobileHoliday;
         }
 
         return null;
@@ -38,7 +33,8 @@ class DaysOffService {
 
     async updateOrCreateDaysOff(code, date, name) {
         const { day, month } = this.getDayMonthAndYear(date);
-        const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const type = await this.getTypeCode(code);
 
         if (!existsDayOff) {
             await this.createDayOff({ day, month, code, name, type });
@@ -60,7 +56,8 @@ class DaysOffService {
             const day = dayCarnival[2];
             const month = dayCarnival[1];
             const name = 'Carnaval';
-            const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
 
             if (!existsDayOff) {
                 await this.createDayOff({ day, month, code, name, type });
@@ -78,7 +75,8 @@ class DaysOffService {
             const day = dayCorpusChristi[2];
             const month = dayCorpusChristi[1];
             const name = 'Corpus Christi';
-            const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
 
             if (!existsDayOff) {
                 await this.createDayOff({ day, month, code, name, type });
@@ -146,7 +144,8 @@ class DaysOffService {
             return `A data informada: ${date}, deve seguir o seguinte padrão: YYYY-MM-DD`;
         }
 
-        if (!this.isValidCode(code)) {
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
             return `O código do estado ou município informado não existe: ${code}`;
         }
 
@@ -159,7 +158,8 @@ class DaysOffService {
             return `A data informada: ${time[1]}-${time[2]}, deve seguir o seguinte padrão: MM-DD`;
         }
 
-        if (!this.isValidCode(code)) {
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
             return `O código do estado ou município informado não existe: ${code}`;
         }
 
@@ -171,19 +171,24 @@ class DaysOffService {
     }
 
     async isValidParamsUpdateOrCreateMoved(code) {
-        if (!this.isValidCode(code)) {
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
             return `O código do estado ou município informado não existe: ${code}`;
         }
 
         return null;        
     }
 
-    isValidCode(code) {
+    async isValidCode(code) {
         try {
             if (code.length === 2) {
-                return StatesService.getState(parseInt(code));
+                const state = await StatesService.getState(parseInt(code));
+
+                return state instanceof StatesService.getModel();
             } else if (code.length === 7) {
-                return CountisService.getCounty(parseInt(code));
+                const county = await CountisService.getCounty(parseInt(code));
+
+                return county instanceof CountisService.getModel();
             } else {
                 return false;
             }
@@ -243,7 +248,7 @@ class DaysOffService {
     }
 
     getDayEaster(year) {
-        return moment(meeusAlgorithm(parseInt(year)));
+        return moment(meeusAlgorithm(parseInt(year)), 'YYYY-MM-DD');
     }
 
     getGoodFriday(date) {
@@ -256,39 +261,6 @@ class DaysOffService {
 
     getCorpusChristi(date) {
         return moment(date,'YYYY-MM-DD').add(60, 'days').format('YYYY-MM-DD');
-    }
-
-    async mobileHolidays(year, month, day) {
-        const easter = await this.getDayEaster(parseInt(year)).format('YYYY-MM-DD').split('-');
-
-        if (year === easter[0] 
-            && month === easter[1] 
-            && day === easter[2]) {
-                return 'Páscoa';
-        }
-        const easterDay = `${year}-${easter[1]}-${easter[2]}`;
-        const goodFriday = await this.getGoodFriday(easterDay).split('-');
-        if (year === goodFriday[0] 
-            && month === goodFriday[1] 
-            && day === goodFriday[2]) {
-                return 'Sexta-feira Santa'
-            }
-
-        const carnival = await this.getCarnival(easterDay).split('-');
-        if (year === carnival[0] 
-            && month === carnival[1] 
-            && day === carnival[2]) {
-                return 'Carnaval';
-        }
-
-        const corpusChristi = await this.getCorpusChristi(easterDay).split('-');
-        if (year === corpusChristi[0] 
-            && month === corpusChristi[1] 
-            && day === corpusChristi[2]) {
-                return 'Corpus Christi ';
-        }
-
-        return null;
     }
 
     getDayMonthAndYear(date) {
@@ -305,22 +277,29 @@ class DaysOffService {
 
         if (codeState) {
             return TYPE_STATE;
-        } else {
+        } 
+        
+        const codeCounty = await CountisService.getCounty(parseInt(code));
+        if (codeCounty) {
             return TYPE_COUNTY;
         }
+
+        return null;
     }
 
-    async getTypeCodeAndIfExists(day, month, code) {
+    async getIfExistsDayOff(day, month, code) {
         const type = await this.getTypeCode(code);
         let existsDayOff = null;
-
+        console.log(type);
         if (type === TYPE_STATE) {
             existsDayOff = await this.isDaysOffState(day, month, code);
-        } else {
+        } 
+        
+        if (type === TYPE_COUNTY) {
             existsDayOff = await this.isDaysOffCounty(day, month, code);
         }
 
-        return { type, existsDayOff };
+        return existsDayOff;
     }
 }
 
