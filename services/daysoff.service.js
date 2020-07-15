@@ -3,8 +3,6 @@ const CountisService = require('../services/counties.service');
 const StatesService = require('../services/states.service');
 const { dateValidation, meeusAlgorithm } = require('../utils');
 const moment = require('moment');
-const States = require('../models/states.model');
-const Counties = require('../models/counties.model');
 
 class DaysOffService {
 
@@ -83,7 +81,7 @@ class DaysOffService {
         let result = await DaysOff.findOne({
             where: { day, month },
             include: [{
-                model: States,
+                model: StatesService.getModel(),
                 as: 'states',
                 where: { prefix: code }
             }]
@@ -100,7 +98,7 @@ class DaysOffService {
         let result = await DaysOff.findOne({
             where: { day, month },
             include: [{
-                model: Counties,
+                model: CountisService.getModel(),
                 as: 'counties',
                 where: { code }
             }]
