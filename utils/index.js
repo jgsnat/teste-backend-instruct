@@ -1,8 +1,6 @@
 const neatCsv = require('neat-csv');
 const fs = require('fs');
-
-const REGEX_CODES = /^\d{2}|\d{7}$/g;
-const REGEX_DATES = /^\d{4}-\d{2}-\d{2}|\d{2}-\d{2}$/g;
+const moment = require('moment');
 
 const readFile = (nameFile) => {
     try {
@@ -14,35 +12,23 @@ const readFile = (nameFile) => {
     }
 };
 
-const codeValidation = (code) => {
-    return REGEX_CODES.test(code);
-}
-
 const dateValidation = (date) => {
-    if (REGEX_DATES.test(date)) {
-        let partsDate = date.split('-');
+    let partsDate = date.split('-');
 
-        if (partsDate.length === 2) {
-            let year = new Date().getFullYear();
-            let month = parseInt(partsDate[0], 10);
-            let day = parseInt(partsDate[1], 10);
-            let time = new Date(year, month -1, day, 12, 0, 0, 0);
+    if (partsDate.length === 2) {
+        let year = new Date().getFullYear();
+        let month = partsDate[0];
+        let day = partsDate[1];
+        let time = moment(`${year}-${month}-${day}`, "YYYY-MM-DD", true);
 
-            return month === (time.getMonth()+1) 
-                && day === time.getDate()
-                && year === time.getFullYear();
-        } else if (partsDate.length === 3) {
-            let year = parseInt(partsDate[0], 10);
-            let month = parseInt(partsDate[1], 10);
-            let day = parseInt(partsDate[2], 10);
-            let time = new Date(year, month -1, day, 12, 0, 0, 0);
+        return time.isValid();
+    } else if (partsDate.length === 3) {
+        let year = partsDate[0]
+        let month = partsDate[1]
+        let day = partsDate[2]
+        let time = moment(`${year}-${month}-${day}`, "YYYY-MM-DD", true);
 
-            return month === (time.getMonth()+1) 
-                && day === time.getDate()
-                && year === time.getFullYear();
-        } else {
-            return false;
-        }
+        return time.isValid();
     } else {
         return false;
     }
@@ -69,6 +55,5 @@ const meeusAlgorithm = (year) => {
 }
 
 exports.readFile = readFile;
-exports.codeValidation = codeValidation;
 exports.dateValidation = dateValidation;
 exports.meeusAlgorithm = meeusAlgorithm;

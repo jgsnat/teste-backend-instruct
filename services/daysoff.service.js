@@ -2,11 +2,13 @@ const DaysOff = require('../models/daysoff.model');
 const CountisService = require('../services/counties.service');
 const StatesService = require('../services/states.service');
 const { dateValidation, meeusAlgorithm } = require('../utils');
+const moment = require('moment');
+const States = require('../models/states.model');
+const Counties = require('../models/counties.model');
 
 class DaysOffService {
 
     async getDayOff(code, date) {
-        let dayOff = null;
         let partsOfDate = date.split('-');
         let year = partsOfDate[0].trim();
         let month = partsOfDate[1].trim();
@@ -14,19 +16,29 @@ class DaysOffService {
 
         let dayOffNational = await this.isDaysOffNational(day, month);
         if (dayOffNational) {
-            dayOff = dayOffNational.name;    
+            return dayOffNational.name;    
         } 
-        
-        let dayMobileHoliday = this.mobileHolidays(year, month, day);
+
+        let dayMobileHoliday = await this.mobileHolidays(year, month, day);
         if (dayMobileHoliday) {
-            dayOff = dayMobileHoliday;
+            return dayMobileHoliday;
         }
 
-        return dayOff;
+        let dayOffState = await this.isDaysOffState(day, month, parseInt(code));
+        if (dayOffState) {
+            return dayOffState.name;
+        }
+
+        let dayOffCounty = await this.isDaysOffCounty(day, month, parseInt(code));
+        if (dayOffCounty) {
+            return dayOffCounty.name;
+        }
+
+        return null;
     }
 
-    isValidParams(code, date) {
-        if (!this.isValidDate(date)) {
+    async isValidParams(code, date) {
+        if (!dateValidation(date)) {
             return `A data informada: ${date}, deve seguir o seguinte padrão: YYYY-MM-DD`;
         }
 
@@ -39,11 +51,10 @@ class DaysOffService {
 
     isValidCode(code) {
         try {
-            console.log('entrou 2');
             if (code.length === 2) {
-                return StatesService.getState(code);
+                return StatesService.getState(parseInt(code));
             } else if (code.length === 7) {
-                return CountisService.getCounty(code);
+                return CountisService.getCounty(parseInt(code));
             } else {
                 return false;
             }
@@ -52,13 +63,8 @@ class DaysOffService {
         }
     }
 
-    async isValidDate(date) {
-        console.log(await !dateValidation(date));
-        return await dateValidation(date);
-    }
-
     async isDaysOffNational(day, month) {
-        let valor = await DaysOff.findOne({
+        let result = await DaysOff.findOne({
             where: {
                 day,
                 month,
@@ -66,16 +72,49 @@ class DaysOffService {
             }
         });
 
-        if (valor) {
-            return valor.dataValues;
+        if (result) {
+            return result.dataValues;
         } else {
             return null;
         }
     }
 
-    async mobileHolidays(year, month, day) {
-        let easter = await meeusAlgorithm(parseInt(year)).split('-');
-        let nameDayOff = null;
+    async isDaysOffState(day, month, code) {
+        let result = await DaysOff.findOne({
+            where: { day, month },
+            include: [{
+                model: States,
+                as: 'states',
+                where: { prefix: code }
+            }]
+        });
+
+        if (result) {
+            return result.dataValues;
+        } else {
+            return null;
+        }
+    }
+    
+    async isDaysOffCounty(day, month, code) {
+        let result = await DaysOff.findOne({
+            where: { day, month },
+            include: [{
+                model: Counties,
+                as: 'counties',
+                where: { code }
+            }]
+        });
+
+        if (result) {
+            return result.dataValues;
+        } else {
+            return null;
+        }
+    }
+
+    mobileHolidays(year, month, day) {
+        let easter = meeusAlgorithm(parseInt(year)).split('-');
         if (easter[1] < 10) {
             easter[1] = `0${easter[1]}`;
         }
@@ -87,12 +126,31 @@ class DaysOffService {
         if (year === easter[0] 
             && month === easter[1] 
             && day === easter[2]) {
-                nameDayOff = 'Páscoa';
+                return 'Páscoa';
+        }
+        let easterDay = `${year}-${easter[1]}-${easter[2]}`;
+        let goodFriday = moment(easterDay).subtract(2, 'days').format('YYYY-MM-DD').split('-');
+        if (year === goodFriday[0] 
+            && month === goodFriday[1] 
+            && day === goodFriday[2]) {
+                return 'Sexta-feira Santa'
+            }
 
-                return nameDayOff;
+        let carnival = moment(easterDay).subtract(47, 'days').format('YYYY-MM-DD').split('-');
+        if (year === carnival[0] 
+            && month === carnival[1] 
+            && day === carnival[2]) {
+                return 'Carnaval';
         }
 
-        return nameDayOff;
+        let corpusChristi = moment(easterDay).add(60, 'days').format('YYYY-MM-DD').split('-');
+        if (year === corpusChristi[0] 
+            && month === corpusChristi[1] 
+            && day === corpusChristi[2]) {
+                return 'Corpus Christi ';
+        }
+
+        return null;
     }
 }
 

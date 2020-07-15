@@ -1,8 +1,8 @@
 const States = require('../models/states.model');
 
 class StatesService {
-    getState(id) {
-        return States.findByPk(parseInt(id));
+    async getState(id) {
+        return await States.findByPk(id);
     }
 }
 
