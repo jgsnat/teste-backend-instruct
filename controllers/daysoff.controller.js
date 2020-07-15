@@ -32,21 +32,38 @@ class DaysOffController {
             const { code, date } = req.params;
             const { name } = req.body;
             const dateWithYear = `${new Date().getFullYear()}-${date}`;
-            const error = await DaysOffService.isValidParamsUpdateOrCreate(code, dateWithYear, name);
-            
-            if (error) {
-                console.error(error);
-                return res.status(UNPROCESSABLE_ENTITY).send({ 
-                    error
-                });
-            }
 
-            const result = await DaysOffService.updateOrCreateDaysOff(code, dateWithYear, name);
-            if (result === null) {
-                return res.sendStatus(NOT_FOUND);
-            } 
-
-            return res.status(result).send({ name }); 
+            if (date.trim() === 'carnaval' || date.trim() === 'corpus-christi') {
+                const error = await DaysOffService.isValidParamsUpdateOrCreateMoved(code);
+                if (error) {
+                    console.error(error);
+                    return res.status(UNPROCESSABLE_ENTITY).send({ 
+                        error
+                    });
+                }
+    
+                const result = await DaysOffService.updateOrCreateDaysOffMoved(code, date);
+                if (result === null) {
+                    return res.sendStatus(NOT_FOUND);
+                } 
+    
+                return res.status(result.code).send({ name: result.name });
+            } else {
+                const error = await DaysOffService.isValidParamsUpdateOrCreate(code, dateWithYear, name);
+                if (error) {
+                    console.error(error);
+                    return res.status(UNPROCESSABLE_ENTITY).send({ 
+                        error
+                    });
+                }
+    
+                const result = await DaysOffService.updateOrCreateDaysOff(code, dateWithYear, name);
+                if (result === null) {
+                    return res.sendStatus(NOT_FOUND);
+                } 
+    
+                return res.status(result).send({ name });    
+            }             
         } catch (errors) {
             console.error(errors);
             return res.status(INTERNEL_SERVER_ERROR).send({ errors });

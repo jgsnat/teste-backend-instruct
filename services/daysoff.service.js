@@ -51,6 +51,48 @@ class DaysOffService {
         }
     }
 
+    async updateOrCreateDaysOffMoved(code, date) {
+        const year = new Date().getFullYear();
+        const dayEaster = await this.getDayEaster(year);
+
+        if (date.trim() === 'carnaval') {
+            const dayCarnival = await this.getCarnival(dayEaster).split('-');
+            const day = dayCarnival[2];
+            const month = dayCarnival[1];
+            const name = 'Carnaval';
+            const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+
+            if (!existsDayOff) {
+                await this.createDayOff({ day, month, code, name, type });
+    
+                return { code: CREATED, name };
+            } else {
+                await this.updateDayOff({ day, month, code, name, type });
+    
+                return { code: OK, name };
+            }
+        }
+
+        if (date.trim() === 'corpus-christi') {
+            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
+            const day = dayCorpusChristi[2];
+            const month = dayCorpusChristi[1];
+            const name = 'Corpus Christi';
+            const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+
+            if (!existsDayOff) {
+                await this.createDayOff({ day, month, code, name, type });
+    
+                return { code: CREATED, name };
+            } else {
+                await this.updateDayOff({ day, month, code, name, type });
+    
+                return { code: OK, name };
+            }
+        }
+
+    }
+
     async createDayOff(values) {
         const { day, month, code, name, type } = values;
 
@@ -128,6 +170,14 @@ class DaysOffService {
         return null;        
     }
 
+    async isValidParamsUpdateOrCreateMoved(code) {
+        if (!this.isValidCode(code)) {
+            return `O código do estado ou município informado não existe: ${code}`;
+        }
+
+        return null;        
+    }
+
     isValidCode(code) {
         try {
             if (code.length === 2) {
@@ -192,15 +242,24 @@ class DaysOffService {
         }
     }
 
-    mobileHolidays(year, month, day) {
-        const easter = meeusAlgorithm(parseInt(year)).split('-');
-        if (easter[1] < 10) {
-            easter[1] = `0${easter[1]}`;
-        }
+    getDayEaster(year) {
+        return moment(meeusAlgorithm(parseInt(year)));
+    }
 
-        if (easter[2] < 10) {
-            easter[2] = `0${easter[2]}`;
-        }
+    getGoodFriday(date) {
+        return moment(date,'YYYY-MM-DD').subtract(2, 'days').format('YYYY-MM-DD');
+    }
+
+    getCarnival(date) {
+        return moment(date,'YYYY-MM-DD').subtract(47, 'days').format('YYYY-MM-DD');
+    }
+
+    getCorpusChristi(date) {
+        return moment(date,'YYYY-MM-DD').add(60, 'days').format('YYYY-MM-DD');
+    }
+
+    async mobileHolidays(year, month, day) {
+        const easter = await this.getDayEaster(parseInt(year)).format('YYYY-MM-DD').split('-');
 
         if (year === easter[0] 
             && month === easter[1] 
@@ -208,21 +267,21 @@ class DaysOffService {
                 return 'Páscoa';
         }
         const easterDay = `${year}-${easter[1]}-${easter[2]}`;
-        const goodFriday = moment(easterDay).subtract(2, 'days').format('YYYY-MM-DD').split('-');
+        const goodFriday = await this.getGoodFriday(easterDay).split('-');
         if (year === goodFriday[0] 
             && month === goodFriday[1] 
             && day === goodFriday[2]) {
                 return 'Sexta-feira Santa'
             }
 
-        const carnival = moment(easterDay).subtract(47, 'days').format('YYYY-MM-DD').split('-');
+        const carnival = await this.getCarnival(easterDay).split('-');
         if (year === carnival[0] 
             && month === carnival[1] 
             && day === carnival[2]) {
                 return 'Carnaval';
         }
 
-        const corpusChristi = moment(easterDay).add(60, 'days').format('YYYY-MM-DD').split('-');
+        const corpusChristi = await this.getCorpusChristi(easterDay).split('-');
         if (year === corpusChristi[0] 
             && month === corpusChristi[1] 
             && day === corpusChristi[2]) {
@@ -241,8 +300,8 @@ class DaysOffService {
         return { day, month, year };
     }
 
-    getTypeCode(code) {
-        const codeState = StatesService.getState(parseInt(code));
+    async getTypeCode(code) {
+        const codeState = await StatesService.getState(parseInt(code));
 
         if (codeState) {
             return TYPE_STATE;

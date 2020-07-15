@@ -1,13 +1,14 @@
 const States = require('../models/states.model');
 const Counties = require('../models/counties.model');
 const DaysOff = require('../models/daysoff.model');
-const { readFile } = require('.');
+const DaysOffService = require('../services/daysoff.service');
+const { readFile, meeusAlgorithm } = require('.');
 
 const initDbStates = async () => {
-    let savedStates = await States.findAll();
+    const savedStates = await States.findAll();
 
     if (savedStates.length === 0) {
-        let states = await readFile('estados-2019.csv');
+        const states = await readFile('estados-2019.csv');
     
         for (state of states) {
             States.create({ 
@@ -20,10 +21,10 @@ const initDbStates = async () => {
 };
 
 const initDbCounties = async () => {
-    let savedCounties = await Counties.findAll();
+    const savedCounties = await Counties.findAll();
     
     if (savedCounties.length == 0) {
-        let counties = await readFile('municipios-2019.csv');
+        const counties = await readFile('municipios-2019.csv');
     
         for (county of counties) {
             Counties.create({ 
@@ -35,10 +36,10 @@ const initDbCounties = async () => {
 };
 
 const initDbDaysOff = async () => {
-    let savedDaysOff = await DaysOff.findAll();
+    const savedDaysOff = await DaysOff.findAll();
 
     if (savedDaysOff.length === 0) {
-        let daysOff = await readFile('feriados-nacionais.csv');
+        const daysOff = await readFile('feriados-nacionais.csv');
     
         for (dayOff of daysOff) {
             let date = dayOff.data.split('/'); 
@@ -52,6 +53,17 @@ const initDbDaysOff = async () => {
                 national: true
             });
         }
+        const dayEaster = await meeusAlgorithm(new Date().getFullYear());
+        const getGoodFriday = await DaysOffService.getGoodFriday(dayEaster).split('-');
+        let day = getGoodFriday[1].trim();
+        let month = getGoodFriday[2].trim();
+
+        DaysOff.create({
+            day,
+            month,
+            name: 'Sexta-feira Santa',
+            national: true
+        });
     }
 };
 
