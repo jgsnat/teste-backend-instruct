@@ -3,36 +3,100 @@ const CountisService = require('../services/counties.service');
 const StatesService = require('../services/states.service');
 const { dateValidation, meeusAlgorithm } = require('../utils');
 const moment = require('moment');
+const { CREATED, OK } = require('../utils/constant');
+
+const TYPE_STATE = 'STATE';
+const TYPE_COUNTY = 'COUNTY';
 
 class DaysOffService {
 
     async getDayOff(code, date) {
-        let partsOfDate = date.split('-');
-        let year = partsOfDate[0].trim();
-        let month = partsOfDate[1].trim();
-        let day = partsOfDate[2].trim();
+        const { day, month, year } = this.getDayMonthAndYear(date);
 
-        let dayOffNational = await this.isDaysOffNational(day, month);
-        if (dayOffNational) {
-            return dayOffNational.name;    
-        } 
-
-        let dayMobileHoliday = await this.mobileHolidays(year, month, day);
-        if (dayMobileHoliday) {
-            return dayMobileHoliday;
+        const dayOffCounty = await this.isDaysOffCounty(day, month, parseInt(code));
+        if (dayOffCounty) {
+            return dayOffCounty.name;
         }
-
-        let dayOffState = await this.isDaysOffState(day, month, parseInt(code));
+        
+        const dayOffState = await this.isDaysOffState(day, month, parseInt(code));
         if (dayOffState) {
             return dayOffState.name;
         }
 
-        let dayOffCounty = await this.isDaysOffCounty(day, month, parseInt(code));
-        if (dayOffCounty) {
-            return dayOffCounty.name;
+        const dayOffNational = await this.isDaysOffNational(day, month);
+        if (dayOffNational) {
+            return dayOffNational.name;    
+        } 
+
+        const dayMobileHoliday = await this.mobileHolidays(year, month, day);
+        if (dayMobileHoliday) {
+            return dayMobileHoliday;
         }
 
         return null;
+    }
+
+    async updateOrCreateDaysOff(code, date, name) {
+        const { day, month } = this.getDayMonthAndYear(date);
+        const { type, existsDayOff } = await this.getTypeCodeAndIfExists(day, month, code);
+
+        if (!existsDayOff) {
+            await this.createDayOff({ day, month, code, name, type });
+
+            return CREATED;
+        } else {
+            await this.updateDayOff({ day, month, code, name, type });
+
+            return OK;
+        }
+    }
+
+    async createDayOff(values) {
+        const { day, month, code, name, type } = values;
+
+        if (type === TYPE_STATE) {
+            await DaysOff.create({
+                day,
+                month,
+                name: name.trim(),
+                states_prefix: parseInt(code)
+            });
+        } else {
+            await DaysOff.create({
+                day,
+                month,
+                name: name.trim(),
+                counties_code: parseInt(code)
+            });
+        }
+    }
+
+    async updateDayOff(values) {
+        const { day, month, code, name, type } = values;
+
+        if (type === TYPE_STATE) {
+            await DaysOff.update({ name: name.trim() }, 
+                {
+                    where: { day, month },
+                    include: [{
+                        model: StatesService.getModel(),
+                        as: 'states',
+                        where: { prefix: parseInt(code) }
+                    }]
+                }
+            );
+        } else {
+            await DaysOff.update({ name: name.trim() }, 
+                {
+                    where: { day, month },
+                    include: [{
+                        model: CountisService.getModel(),
+                        as: 'counties',
+                        where: { code: parseInt(code) }
+                    }]
+                }
+            );
+        }
     }
 
     async isValidParams(code, date) {
@@ -45,6 +109,23 @@ class DaysOffService {
         }
 
         return null;
+    }
+
+    async isValidParamsUpdateOrCreate(code, date, name) {
+        if (!dateValidation(date)) {
+            let time = date.split('-');
+            return `A data informada: ${time[1]}-${time[2]}, deve seguir o seguinte padrão: MM-DD`;
+        }
+
+        if (!this.isValidCode(code)) {
+            return `O código do estado ou município informado não existe: ${code}`;
+        }
+
+        if (!name || name === '' || name === undefined) {
+            return `O nome do feriado informado não é válido: ${name}`;
+        }
+
+        return null;        
     }
 
     isValidCode(code) {
@@ -62,7 +143,7 @@ class DaysOffService {
     }
 
     async isDaysOffNational(day, month) {
-        let result = await DaysOff.findOne({
+        const result = await DaysOff.findOne({
             where: {
                 day,
                 month,
@@ -78,7 +159,7 @@ class DaysOffService {
     }
 
     async isDaysOffState(day, month, code) {
-        let result = await DaysOff.findOne({
+        const result = await DaysOff.findOne({
             where: { day, month },
             include: [{
                 model: StatesService.getModel(),
@@ -95,7 +176,7 @@ class DaysOffService {
     }
     
     async isDaysOffCounty(day, month, code) {
-        let result = await DaysOff.findOne({
+        const result = await DaysOff.findOne({
             where: { day, month },
             include: [{
                 model: CountisService.getModel(),
@@ -112,7 +193,7 @@ class DaysOffService {
     }
 
     mobileHolidays(year, month, day) {
-        let easter = meeusAlgorithm(parseInt(year)).split('-');
+        const easter = meeusAlgorithm(parseInt(year)).split('-');
         if (easter[1] < 10) {
             easter[1] = `0${easter[1]}`;
         }
@@ -126,22 +207,22 @@ class DaysOffService {
             && day === easter[2]) {
                 return 'Páscoa';
         }
-        let easterDay = `${year}-${easter[1]}-${easter[2]}`;
-        let goodFriday = moment(easterDay).subtract(2, 'days').format('YYYY-MM-DD').split('-');
+        const easterDay = `${year}-${easter[1]}-${easter[2]}`;
+        const goodFriday = moment(easterDay).subtract(2, 'days').format('YYYY-MM-DD').split('-');
         if (year === goodFriday[0] 
             && month === goodFriday[1] 
             && day === goodFriday[2]) {
                 return 'Sexta-feira Santa'
             }
 
-        let carnival = moment(easterDay).subtract(47, 'days').format('YYYY-MM-DD').split('-');
+        const carnival = moment(easterDay).subtract(47, 'days').format('YYYY-MM-DD').split('-');
         if (year === carnival[0] 
             && month === carnival[1] 
             && day === carnival[2]) {
                 return 'Carnaval';
         }
 
-        let corpusChristi = moment(easterDay).add(60, 'days').format('YYYY-MM-DD').split('-');
+        const corpusChristi = moment(easterDay).add(60, 'days').format('YYYY-MM-DD').split('-');
         if (year === corpusChristi[0] 
             && month === corpusChristi[1] 
             && day === corpusChristi[2]) {
@@ -149,6 +230,38 @@ class DaysOffService {
         }
 
         return null;
+    }
+
+    getDayMonthAndYear(date) {
+        const partsOfDate = date.split('-');
+        const year = partsOfDate[0].trim();
+        const month = partsOfDate[1].trim();
+        const day = partsOfDate[2].trim();
+
+        return { day, month, year };
+    }
+
+    getTypeCode(code) {
+        const codeState = StatesService.getState(parseInt(code));
+
+        if (codeState) {
+            return TYPE_STATE;
+        } else {
+            return TYPE_COUNTY;
+        }
+    }
+
+    async getTypeCodeAndIfExists(day, month, code) {
+        const type = await this.getTypeCode(code);
+        let existsDayOff = null;
+
+        if (type === TYPE_STATE) {
+            existsDayOff = await this.isDaysOffState(day, month, code);
+        } else {
+            existsDayOff = await this.isDaysOffCounty(day, month, code);
+        }
+
+        return { type, existsDayOff };
     }
 }
 
