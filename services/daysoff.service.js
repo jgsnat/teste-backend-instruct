@@ -17,7 +17,7 @@ class DaysOffService {
         if (dayOffCounty) {
             return dayOffCounty.name;
         }
-        
+
         const dayOffState = await this.isDaysOffState(day, month, parseInt(code));
         if (dayOffState) {
             return dayOffState.name;
