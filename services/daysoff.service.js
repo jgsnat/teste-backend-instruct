@@ -3,7 +3,7 @@ const CountisService = require('../services/counties.service');
 const StatesService = require('../services/states.service');
 const { dateValidation, meeusAlgorithm } = require('../utils');
 const moment = require('moment');
-const { CREATED, OK } = require('../utils/constant');
+const { CREATED, OK, UNPROCESSABLE_ENTITY, FORBIDDEN, NOT_CONTENT, NOT_FOUND } = require('../utils/constant');
 
 const TYPE_STATE = 'STATE';
 const TYPE_COUNTY = 'COUNTY';
@@ -91,6 +91,60 @@ class DaysOffService {
 
     }
 
+    async removeDaysOffMoved(code, date) {
+        const year = new Date().getFullYear();
+        const dayEaster = await this.getDayEaster(year);
+
+        if (date.trim() === 'carnaval') {
+            const dayCarnival = await this.getCarnival(dayEaster).split('-');
+            const day = dayCarnival[2];
+            const month = dayCarnival[1];
+            const name = 'Carnaval';
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
+
+            if (!existsDayOff) {
+                return null;
+            } else {
+                await this.removeDayOff({ day, month, code, type });
+    
+                return { code: NOT_CONTENT, name };
+            }
+        }
+
+        if (date.trim() === 'corpus-christi') {
+            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
+            const day = dayCorpusChristi[2];
+            const month = dayCorpusChristi[1];
+            const name = 'Corpus Christi';
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
+
+            if (!existsDayOff) {
+                return null;
+            } else {
+                await this.removeDayOff({ day, month, code, type });
+    
+                return { code: NOT_CONTENT, name };
+            }
+        }
+
+    }
+
+    async removeDaysOff(code, date) {
+        const { day, month } = this.getDayMonthAndYear(date);
+        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const type = await this.getTypeCode(code);
+
+        if (!existsDayOff) {
+            return null;
+        } else {
+            await this.removeDayOff({ day, month, code, type });
+
+            return { code: NOT_CONTENT, name };
+        }
+    }
+
     async createDayOff(values) {
         const { day, month, code, name, type } = values;
 
@@ -139,6 +193,30 @@ class DaysOffService {
         }
     }
 
+    async removeDayOff(values) {
+        const { day, month, code, type } = values;
+
+        if (type === TYPE_STATE) {
+            await DaysOff.destroy({
+                where: { day, month },
+                include: [{
+                    model: StatesService.getModel(),
+                    as: 'states',
+                    where: { prefix: parseInt(code) }
+                }]
+            });
+        } else {
+            await DaysOff.destroy({
+                where: { day, month },
+                include: [{
+                    model: CountisService.getModel(),
+                    as: 'counties',
+                    where: { code: parseInt(code) }
+                }]
+            });
+        }
+    }
+
     async isValidParams(code, date) {
         if (!dateValidation(date)) {
             return `A data informada: ${date}, deve seguir o seguinte padrão: YYYY-MM-DD`;
@@ -165,6 +243,109 @@ class DaysOffService {
 
         if (!name || name === '' || name === undefined) {
             return `O nome do feriado informado não é válido: ${name}`;
+        }
+
+        return null;        
+    }
+
+    async isValidParamsUpdateOrCreateMoved(code) {
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
+            return `O código do estado ou município informado não existe: ${code}`;
+        }
+
+        return null;        
+    }
+
+    async isValidParamsRemovedMoved(code, date) {
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
+            return { 
+                error: `O código do estado ou município informado não existe: ${code}`,
+                code: UNPROCESSABLE_ENTITY
+            };
+        }
+
+        if (date.trim() === 'carnaval') {
+            const dayEaster = await this.getDayEaster(new Date().getFullYear());
+            const dayCarnival = await this.getCarnival(dayEaster).split('-');
+            const day = dayCarnival[2];
+            const month = dayCarnival[1];
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
+
+            if (existsDayOff) {
+                const state = await StatesService.getState(code);
+                if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+                    return {
+                        error: `Não é possível remover um feriado estadual de um município`,
+                        code: FORBIDDEN
+                    };
+                }
+            }
+
+        }
+
+        if (date.trim() === 'corpus-christi') {
+            const dayEaster = await this.getDayEaster(new Date().getFullYear());
+            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
+            const day = dayCorpusChristi[2];
+            const month = dayCorpusChristi[1];
+            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+            const type = await this.getTypeCode(code);
+
+            if (existsDayOff) {
+                const state = await StatesService.getState(code);
+                if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+                    return {
+                        error: `Não é possível remover um feriado estadual de um município`,
+                        code: FORBIDDEN
+                    };
+                }
+            }
+
+        }
+
+        return null;
+    }
+
+    async isValidParamsRemoved(code, date) {
+        if (!dateValidation(date)) {
+            let time = date.split('-');
+            return {
+                error: `A data informada: ${time[1]}-${time[2]}, deve seguir o seguinte padrão: MM-DD`,
+                code: UNPROCESSABLE_ENTITY
+            };
+        }
+
+        const validaCode = await this.isValidCode(code);
+        if (!validaCode) {
+            return { 
+                error: `O código do estado ou município informado não existe: ${code}`,
+                code: UNPROCESSABLE_ENTITY
+            };;
+        }
+
+        const { day, month } = this.getDayMonthAndYear(date);
+        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const type = await this.getTypeCode(code);
+
+        if (existsDayOff) {
+            const state = await StatesService.getState(code);
+            if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+                return {
+                    error: `Não é possível remover um feriado estadual de um município`,
+                    code: FORBIDDEN
+                };
+            }
+        }
+
+        const dayOffNational = await this.isDaysOffNational(day, month);
+        if (dayOffNational) {
+            return {
+                error: `Não é possível remover um feriado nacional de um município ou unidade federativa`,
+                code: FORBIDDEN
+            };
         }
 
         return null;        
@@ -290,7 +471,7 @@ class DaysOffService {
     async getIfExistsDayOff(day, month, code) {
         const type = await this.getTypeCode(code);
         let existsDayOff = null;
-        console.log(type);
+
         if (type === TYPE_STATE) {
             existsDayOff = await this.isDaysOffState(day, month, code);
         } 
