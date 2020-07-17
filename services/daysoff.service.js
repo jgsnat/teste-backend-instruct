@@ -11,13 +11,16 @@ const TYPE_COUNTY = 'COUNTY';
 class DaysOffService {
 
     async getDayOff(code, date) {
-        const { day, month, year } = this.getDayMonthAndYear(date);
+        const { day, month } = this.getDayMonthAndYear(date);
 
         const dayOffCounty = await this.isDaysOffCounty(day, month, parseInt(code));
         if (dayOffCounty) {
             return dayOffCounty.name;
         }
 
+        if (code.length === 7) {
+            code = code.toString().substring(0, 2);
+        }
         const dayOffState = await this.isDaysOffState(day, month, parseInt(code));
         if (dayOffState) {
             return dayOffState.name;
@@ -275,6 +278,9 @@ class DaysOffService {
             const type = await this.getTypeCode(code);
 
             if (existsDayOff) {
+                if (code.length === 7) {
+                    code = code.toString().substring(0, 2);
+                }
                 const state = await StatesService.getState(code);
                 if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
                     return {
@@ -295,6 +301,9 @@ class DaysOffService {
             const type = await this.getTypeCode(code);
 
             if (existsDayOff) {
+                if (code.length === 7) {
+                    code = code.toString().substring(0, 2);
+                }
                 const state = await StatesService.getState(code);
                 if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
                     return {
@@ -331,6 +340,9 @@ class DaysOffService {
         const type = await this.getTypeCode(code);
 
         if (existsDayOff) {
+            if (code.length === 7) {
+                code = code.toString().substring(0, 2);
+            }
             const state = await StatesService.getState(code);
             if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
                 return {
