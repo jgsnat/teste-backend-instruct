@@ -55,13 +55,13 @@ const initDbDaysOff = async () => {
         }
         const dayEaster = await meeusAlgorithm(new Date().getFullYear());
         const getGoodFriday = await DaysOffService.getGoodFriday(dayEaster).split('-');
-        let day = getGoodFriday[1].trim();
-        let month = getGoodFriday[2].trim();
+        let day = getGoodFriday[2].trim();
+        let month = getGoodFriday[1].trim();
 
         DaysOff.create({
             day,
             month,
-            name: 'Sexta-feira Santa',
+            name: 'Sexta-Feira Santa',
             national: true
         });
     }

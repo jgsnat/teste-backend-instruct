@@ -11,7 +11,12 @@ const TYPE_COUNTY = 'COUNTY';
 class DaysOffService {
 
     async getDayOff(code, date) {
-        const { day, month } = this.getDayMonthAndYear(date);
+        const { day, month, year } = this.getDayMonthAndYear(date);
+
+        const dayOffNational = await this.isDaysOffNational(day, month);
+        if (dayOffNational) {
+            return dayOffNational.name;    
+        }
 
         const dayOffCounty = await this.isDaysOffCounty(day, month, parseInt(code));
         if (dayOffCounty) {
@@ -26,9 +31,9 @@ class DaysOffService {
             return dayOffState.name;
         }
 
-        const dayOffNational = await this.isDaysOffNational(day, month);
-        if (dayOffNational) {
-            return dayOffNational.name;    
+        const dayMobileHoliday = await this.mobileHolidays(year, month, day);
+        if (dayMobileHoliday) {
+            return dayMobileHoliday;
         }
 
         return null;
@@ -144,7 +149,7 @@ class DaysOffService {
         } else {
             await this.removeDayOff({ day, month, code, type });
 
-            return { code: NOT_CONTENT, name };
+            return { code: NOT_CONTENT };
         }
     }
 
@@ -337,14 +342,17 @@ class DaysOffService {
 
         const { day, month } = this.getDayMonthAndYear(date);
         const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-        const type = await this.getTypeCode(code);
 
         if (existsDayOff) {
+            let dayOffState;
             if (code.length === 7) {
-                code = code.toString().substring(0, 2);
+                let codeForState = code.toString().substring(0, 2);
+                dayOffState = await this.isDaysOffState(day, month, parseInt(codeForState));
+            } else {
+                dayOffState = await this.isDaysOffState(day, month, parseInt(code));
             }
-            const state = await StatesService.getState(code);
-            if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+
+            if (dayOffState && code.length === 7) {
                 return {
                     error: `Não é possível remover um feriado estadual de um município`,
                     code: FORBIDDEN
@@ -456,6 +464,40 @@ class DaysOffService {
         return moment(date,'YYYY-MM-DD').add(60, 'days').format('YYYY-MM-DD');
     }
 
+    async mobileHolidays(year, month, day) {
+        const easter = await this.getDayEaster(parseInt(year)).format('YYYY-MM-DD').split('-');
+
+        if (year === easter[0] 
+            && month === easter[1] 
+            && day === easter[2]) {
+                return 'Páscoa';
+        }
+        const easterDay = `${easter[0]}-${easter[1]}-${easter[2]}`;
+        const goodFriday = await this.getGoodFriday(easterDay).split('-');
+        if (year === goodFriday[0] 
+            && month === goodFriday[1] 
+            && day === goodFriday[2]) {
+                return 'Sexta-feira Santa'
+            }
+
+        const carnival = await this.getCarnival(easterDay).split('-');
+        if (year === carnival[0] 
+            && month === carnival[1] 
+            && day === carnival[2]) {
+                return 'Carnaval';
+        }
+
+        const corpusChristi = await this.getCorpusChristi(easterDay).split('-');
+
+        if (year === corpusChristi[0] 
+            && month === corpusChristi[1] 
+            && day === corpusChristi[2]) {
+                return 'Corpus Christi';
+        }
+
+        return null;
+    }
+
     getDayMonthAndYear(date) {
         const partsOfDate = date.split('-');
         const year = partsOfDate[0].trim();
@@ -481,18 +523,15 @@ class DaysOffService {
     }
 
     async getIfExistsDayOff(day, month, code) {
-        const type = await this.getTypeCode(code);
-        let existsDayOff = null;
+        const result = await DaysOff.findOne({
+            where: { day, month }
+        });
 
-        if (type === TYPE_STATE) {
-            existsDayOff = await this.isDaysOffState(day, month, code);
-        } 
-        
-        if (type === TYPE_COUNTY) {
-            existsDayOff = await this.isDaysOffCounty(day, month, code);
+        if (result) {
+            return result.dataValues;
+        } else {
+            return null;
         }
-
-        return existsDayOff;
     }
 }
 
