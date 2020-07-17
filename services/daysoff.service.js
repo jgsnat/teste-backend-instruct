@@ -1,17 +1,29 @@
-const DaysOff = require('../models/daysoff.model');
+const DaysOffRepository = require('../repository/daysoff.repository');
 const CountisService = require('../services/counties.service');
 const StatesService = require('../services/states.service');
-const { dateValidation, meeusAlgorithm } = require('../utils');
+const { 
+    dateValidation, 
+    meeusAlgorithm, 
+    getDayMonthAndYear, 
+    comparateDates
+} = require('../utils');
 const moment = require('moment');
-const { CREATED, OK, UNPROCESSABLE_ENTITY, FORBIDDEN, NOT_CONTENT, NOT_FOUND } = require('../utils/constant');
-
+const { 
+    CREATED, 
+    OK, 
+    UNPROCESSABLE_ENTITY, 
+    FORBIDDEN, 
+    NOT_CONTENT 
+} = require('../utils/constant');
 const TYPE_STATE = 'STATE';
 const TYPE_COUNTY = 'COUNTY';
+const TYPE_CARNAVAL = 'carnaval';
+const TYPE_CORPUS_CHRISTI = 'corpus-christi';
 
 class DaysOffService {
 
     async getDayOff(code, date) {
-        const { day, month, year } = this.getDayMonthAndYear(date);
+        const { day, month, year } = getDayMonthAndYear(date);
 
         const dayOffNational = await this.isDaysOffNational(day, month);
         if (dayOffNational) {
@@ -40,8 +52,8 @@ class DaysOffService {
     }
 
     async updateOrCreateDaysOff(code, date, name) {
-        const { day, month } = this.getDayMonthAndYear(date);
-        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const { day, month } = getDayMonthAndYear(date);
+        const existsDayOff = await this.getIfExistsDayOff(day, month);
         const type = await this.getTypeCode(code);
 
         if (!existsDayOff) {
@@ -58,90 +70,64 @@ class DaysOffService {
     async updateOrCreateDaysOffMoved(code, date) {
         const year = new Date().getFullYear();
         const dayEaster = await this.getDayEaster(year);
+        let dayOff;
+        let name;
 
         if (date.trim() === 'carnaval') {
-            const dayCarnival = await this.getCarnival(dayEaster).split('-');
-            const day = dayCarnival[2];
-            const month = dayCarnival[1];
-            const name = 'Carnaval';
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
-
-            if (!existsDayOff) {
-                await this.createDayOff({ day, month, code, name, type });
-    
-                return { code: CREATED, name };
-            } else {
-                await this.updateDayOff({ day, month, code, name, type });
-    
-                return { code: OK, name };
-            }
+            dayOff = await this.getCarnival(dayEaster).split('-');
+            name = 'Carnaval';
+        } else {
+            dayOff = await this.getCorpusChristi(dayEaster).split('-');
+            name = 'Corpus Christi';   
         }
 
-        if (date.trim() === 'corpus-christi') {
-            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
-            const day = dayCorpusChristi[2];
-            const month = dayCorpusChristi[1];
-            const name = 'Corpus Christi';
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
+        const day = dayOff[2];
+        const month = dayOff[1];
+        const existsDayOff = await this.getIfExistsDayOff(day, month);
+        const type = await this.getTypeCode(code);
 
-            if (!existsDayOff) {
-                await this.createDayOff({ day, month, code, name, type });
-    
-                return { code: CREATED, name };
-            } else {
-                await this.updateDayOff({ day, month, code, name, type });
-    
-                return { code: OK, name };
-            }
+        if (!existsDayOff) {
+            await this.createDayOff({ day, month, code, name, type });
+
+            return { code: CREATED, name };
+        } else {
+            await this.updateDayOff({ day, month, code, name, type });
+
+            return { code: OK, name };
         }
-
     }
 
     async removeDaysOffMoved(code, date) {
         const year = new Date().getFullYear();
         const dayEaster = await this.getDayEaster(year);
+        let dayOff;
+        let name;
 
         if (date.trim() === 'carnaval') {
-            const dayCarnival = await this.getCarnival(dayEaster).split('-');
-            const day = dayCarnival[2];
-            const month = dayCarnival[1];
-            const name = 'Carnaval';
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
-
-            if (!existsDayOff) {
-                return null;
-            } else {
-                await this.removeDayOff({ day, month, code, type });
-    
-                return { code: NOT_CONTENT, name };
-            }
+            dayOff = await this.getCarnival(dayEaster).split('-');
+            name = 'Carnaval';
+        } else {
+            dayOff = await this.getCorpusChristi(dayEaster).split('-');
+            name = 'Corpus Christi';
         }
 
-        if (date.trim() === 'corpus-christi') {
-            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
-            const day = dayCorpusChristi[2];
-            const month = dayCorpusChristi[1];
-            const name = 'Corpus Christi';
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
+        const day = dayOff[2];
+        const month = dayOff[1];
+        const existsDayOff = await this.getIfExistsDayOff(day, month);
+        const type = await this.getTypeCode(code);
 
-            if (!existsDayOff) {
-                return null;
-            } else {
-                await this.removeDayOff({ day, month, code, type });
-    
-                return { code: NOT_CONTENT, name };
-            }
+        if (!existsDayOff) {
+            return null;
+        } else {
+            await this.removeDayOff({ day, month, code, type });
+
+            return { code: NOT_CONTENT, name };
         }
-
     }
 
     async removeDaysOff(code, date) {
-        const { day, month } = this.getDayMonthAndYear(date);
-        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const { day, month } = getDayMonthAndYear(date);
+        const existsDayOff = await this.getIfExistsDayOff(day, month);
         const type = await this.getTypeCode(code);
 
         if (!existsDayOff) {
@@ -157,19 +143,9 @@ class DaysOffService {
         const { day, month, code, name, type } = values;
 
         if (type === TYPE_STATE) {
-            await DaysOff.create({
-                day,
-                month,
-                name: name.trim(),
-                states_prefix: parseInt(code)
-            });
+            await DaysOffRepository.createDayOffState({ day, month, code, name });
         } else {
-            await DaysOff.create({
-                day,
-                month,
-                name: name.trim(),
-                counties_code: parseInt(code)
-            });
+            await DaysOffRepository.createDayOffCounty({ day, month, code, name });
         }
     }
 
@@ -177,27 +153,9 @@ class DaysOffService {
         const { day, month, code, name, type } = values;
 
         if (type === TYPE_STATE) {
-            await DaysOff.update({ name: name.trim() }, 
-                {
-                    where: { day, month },
-                    include: [{
-                        model: StatesService.getModel(),
-                        as: 'states',
-                        where: { prefix: parseInt(code) }
-                    }]
-                }
-            );
+            await DaysOffRepository.updateDayOffState({ day, month, code, name });
         } else {
-            await DaysOff.update({ name: name.trim() }, 
-                {
-                    where: { day, month },
-                    include: [{
-                        model: CountisService.getModel(),
-                        as: 'counties',
-                        where: { code: parseInt(code) }
-                    }]
-                }
-            );
+            await DaysOffRepository.updateDayOffCounty({ day, month, code, name });
         }
     }
 
@@ -205,23 +163,9 @@ class DaysOffService {
         const { day, month, code, type } = values;
 
         if (type === TYPE_STATE) {
-            await DaysOff.destroy({
-                where: { day, month },
-                include: [{
-                    model: StatesService.getModel(),
-                    as: 'states',
-                    where: { prefix: parseInt(code) }
-                }]
-            });
+            await DaysOffRepository.removeDayOffState({ day, month, code });
         } else {
-            await DaysOff.destroy({
-                where: { day, month },
-                include: [{
-                    model: CountisService.getModel(),
-                    as: 'counties',
-                    where: { code: parseInt(code) }
-                }]
-            });
+            await DaysOffRepository.removeDayOffCounty({ day, month, code });
         }
     }
 
@@ -274,12 +218,19 @@ class DaysOffService {
             };
         }
 
-        if (date.trim() === 'carnaval') {
+        if (this.isDayOffMovel(date)) {
+            let dayOffMoved;
             const dayEaster = await this.getDayEaster(new Date().getFullYear());
-            const dayCarnival = await this.getCarnival(dayEaster).split('-');
-            const day = dayCarnival[2];
-            const month = dayCarnival[1];
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+
+            if (date.trim() === 'carnaval') {
+                dayOffMoved = await this.getCarnival(dayEaster).split('-');    
+            } else {
+                dayOffMoved = await this.getCorpusChristi(dayEaster).split('-');
+            }
+
+            const day = dayOffMoved[2];
+            const month = dayOffMoved[1];
+            const existsDayOff = await this.getIfExistsDayOff(day, month);
 
             if (existsDayOff) {
                 let dayOffState;
@@ -297,33 +248,6 @@ class DaysOffService {
                     };
                 }
             }
-
-        }
-
-        if (date.trim() === 'corpus-christi') {
-            const dayEaster = await this.getDayEaster(new Date().getFullYear());
-            const dayCorpusChristi = await this.getCorpusChristi(dayEaster).split('-');
-            const day = dayCorpusChristi[2];
-            const month = dayCorpusChristi[1];
-            const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-
-            if (existsDayOff) {
-                let dayOffState;
-                if (code.length === 7) {
-                    let codeForState = code.toString().substring(0, 2);
-                    dayOffState = await this.isDaysOffState(day, month, parseInt(codeForState));
-                } else {
-                    dayOffState = await this.isDaysOffState(day, month, parseInt(code));
-                }
-
-                if (dayOffState && code.length === 7) {
-                    return {
-                        error: `Não é possível remover um feriado estadual de um município`,
-                        code: FORBIDDEN
-                    };
-                }
-            }
-
         }
 
         return null;
@@ -346,8 +270,8 @@ class DaysOffService {
             };;
         }
 
-        const { day, month } = this.getDayMonthAndYear(date);
-        const existsDayOff = await this.getIfExistsDayOff(day, month, code);
+        const { day, month } = getDayMonthAndYear(date);
+        const existsDayOff = await this.getIfExistsDayOff(day, month);
 
         if (existsDayOff) {
             let dayOffState;
@@ -405,53 +329,15 @@ class DaysOffService {
     }
 
     async isDaysOffNational(day, month) {
-        const result = await DaysOff.findOne({
-            where: {
-                day,
-                month,
-                national: true
-            }
-        });
-
-        if (result) {
-            return result.dataValues;
-        } else {
-            return null;
-        }
+        return await DaysOffRepository.findDayOffNational({ day, month });
     }
 
     async isDaysOffState(day, month, code) {
-        const result = await DaysOff.findOne({
-            where: { day, month },
-            include: [{
-                model: StatesService.getModel(),
-                as: 'states',
-                where: { prefix: code }
-            }]
-        });
-
-        if (result) {
-            return result.dataValues;
-        } else {
-            return null;
-        }
+        return await DaysOffRepository.findDayOffState({ day, month, code });
     }
     
     async isDaysOffCounty(day, month, code) {
-        const result = await DaysOff.findOne({
-            where: { day, month },
-            include: [{
-                model: CountisService.getModel(),
-                as: 'counties',
-                where: { code }
-            }]
-        });
-
-        if (result) {
-            return result.dataValues;
-        } else {
-            return null;
-        }
+        return await DaysOffRepository.findDayOffCounty({ day, month, code });
     }
 
     getDayEaster(year) {
@@ -471,51 +357,33 @@ class DaysOffService {
     }
 
     async mobileHolidays(year, month, day) {
-        const easter = await this.getDayEaster(parseInt(year)).format('YYYY-MM-DD').split('-');
+        const easter = await this.getDayEaster(parseInt(year)).format('YYYY-MM-DD');
+        const paramsDate = `${year}-${month}-${day}`;
 
-        if (year === easter[0] 
-            && month === easter[1] 
-            && day === easter[2]) {
-                return 'Páscoa';
-        }
-        const easterDay = `${easter[0]}-${easter[1]}-${easter[2]}`;
-        const goodFriday = await this.getGoodFriday(easterDay).split('-');
-        if (year === goodFriday[0] 
-            && month === goodFriday[1] 
-            && day === goodFriday[2]) {
-                return 'Sexta-feira Santa'
-            }
-
-        const carnival = await this.getCarnival(easterDay).split('-');
-        if (year === carnival[0] 
-            && month === carnival[1] 
-            && day === carnival[2]) {
-                return 'Carnaval';
+        if (comparateDates(easter, paramsDate)) {
+            return 'Páscoa';
         }
 
-        const corpusChristi = await this.getCorpusChristi(easterDay).split('-');
+        const goodFriday = await this.getGoodFriday(easter);
+        if (comparateDates(goodFriday, paramsDate)) {
+            return 'Sexta-feira Santa';
+        }
 
-        if (year === corpusChristi[0] 
-            && month === corpusChristi[1] 
-            && day === corpusChristi[2]) {
-                return 'Corpus Christi';
+        const carnival = await this.getCarnival(easter);
+        if (comparateDates(carnival, paramsDate)) {
+            return 'Carnaval';
+        }
+
+        const corpusChristi = await this.getCorpusChristi(easter);
+        if (comparateDates(corpusChristi, paramsDate)) {
+            return 'Corpus Christi';
         }
 
         return null;
     }
 
-    getDayMonthAndYear(date) {
-        const partsOfDate = date.split('-');
-        const year = partsOfDate[0].trim();
-        const month = partsOfDate[1].trim();
-        const day = partsOfDate[2].trim();
-
-        return { day, month, year };
-    }
-
     async getTypeCode(code) {
         const codeState = await StatesService.getState(parseInt(code));
-
         if (codeState) {
             return TYPE_STATE;
         } 
@@ -528,16 +396,14 @@ class DaysOffService {
         return null;
     }
 
-    async getIfExistsDayOff(day, month, code) {
-        const result = await DaysOff.findOne({
-            where: { day, month }
-        });
+    async getIfExistsDayOff(day, month) {
+        return await DaysOffRepository.findDayOff({ day, month });
+    }
 
-        if (result) {
-            return result.dataValues;
-        } else {
-            return null;
-        }
+    isDayOffMovel(date) {
+        const test = date.trim().toLowerCase();
+
+        return (test === TYPE_CARNAVAL || test === TYPE_CORPUS_CHRISTI);
     }
 }
 

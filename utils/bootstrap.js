@@ -2,7 +2,11 @@ const States = require('../models/states.model');
 const Counties = require('../models/counties.model');
 const DaysOff = require('../models/daysoff.model');
 const DaysOffService = require('../services/daysoff.service');
-const { readFile, meeusAlgorithm } = require('.');
+const { 
+    readFile, 
+    meeusAlgorithm, 
+    getDayMonthAndYear 
+} = require('.');
 
 const initDbStates = async () => {
     const savedStates = await States.findAll();
@@ -54,9 +58,8 @@ const initDbDaysOff = async () => {
             });
         }
         const dayEaster = await meeusAlgorithm(new Date().getFullYear());
-        const getGoodFriday = await DaysOffService.getGoodFriday(dayEaster).split('-');
-        let day = getGoodFriday[2].trim();
-        let month = getGoodFriday[1].trim();
+        const getGoodFriday = await DaysOffService.getGoodFriday(dayEaster);
+        const { day, month } = getDayMonthAndYear(getGoodFriday);
 
         DaysOff.create({
             day,

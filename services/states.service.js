@@ -1,12 +1,12 @@
-const States = require('../models/states.model');
+const StatesRepository = require("../repository/states.repository");
 
 class StatesService {
     async getState(id) {
-        return await States.findByPk(id);
+        return await StatesRepository.findById(id);
     }
     
     getModel() {
-        return States;
+        return StatesRepository.getModelClass();
     }
 }
 

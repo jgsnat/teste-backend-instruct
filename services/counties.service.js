@@ -1,12 +1,12 @@
-const Counties = require('../models/counties.model');
+const CountiesRepository = require("../repository/counties.repository");
 
 class CountiesService {
     async getCounty(id) {
-        return await Counties.findByPk(id);
+        return await CountiesRepository.findById(id);
     }
 
     getModel() {
-        return Counties;
+        return CountiesRepository.getModelClass();
     }
 }
 

@@ -16,6 +16,31 @@ const dateValidation = (date) => {
     return moment(date, "YYYY-MM-DD", true).isValid();
 }
 
+const getDayMonthAndYear = (date) => {
+    const partsOfDate = date.split('-');
+    const year = partsOfDate[0].trim();
+    const month = partsOfDate[1].trim();
+    const day = partsOfDate[2].trim();
+
+    return { day, month, year };
+}
+
+const comparateDates = (date1, date2) => {
+    const {
+        day: day1,
+        month: month1,
+        year: year1
+    } = getDayMonthAndYear(date1);
+
+    const {
+        day: day2,
+        month: month2,
+        year: year2
+    } = getDayMonthAndYear(date2);
+
+    return (year1 === year2 && month1 === month2 && day1 === day2);    
+}
+
 const meeusAlgorithm = (year) => {
     // more information: https://pt.wikipedia.org/wiki/C%C3%A1lculo_da_P%C3%A1scoa#Algoritmo_de_Meeus/Jones/Butcher
     const a = year % 19;
@@ -39,3 +64,5 @@ const meeusAlgorithm = (year) => {
 exports.readFile = readFile;
 exports.dateValidation = dateValidation;
 exports.meeusAlgorithm = meeusAlgorithm;
+exports.getDayMonthAndYear = getDayMonthAndYear;
+exports.comparateDates = comparateDates;
