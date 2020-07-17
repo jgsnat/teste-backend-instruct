@@ -280,14 +280,17 @@ class DaysOffService {
             const day = dayCarnival[2];
             const month = dayCarnival[1];
             const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
 
             if (existsDayOff) {
+                let dayOffState;
                 if (code.length === 7) {
-                    code = code.toString().substring(0, 2);
+                    let codeForState = code.toString().substring(0, 2);
+                    dayOffState = await this.isDaysOffState(day, month, parseInt(codeForState));
+                } else {
+                    dayOffState = await this.isDaysOffState(day, month, parseInt(code));
                 }
-                const state = await StatesService.getState(code);
-                if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+
+                if (dayOffState && code.length === 7) {
                     return {
                         error: `Não é possível remover um feriado estadual de um município`,
                         code: FORBIDDEN
@@ -303,14 +306,17 @@ class DaysOffService {
             const day = dayCorpusChristi[2];
             const month = dayCorpusChristi[1];
             const existsDayOff = await this.getIfExistsDayOff(day, month, code);
-            const type = await this.getTypeCode(code);
 
             if (existsDayOff) {
+                let dayOffState;
                 if (code.length === 7) {
-                    code = code.toString().substring(0, 2);
+                    let codeForState = code.toString().substring(0, 2);
+                    dayOffState = await this.isDaysOffState(day, month, parseInt(codeForState));
+                } else {
+                    dayOffState = await this.isDaysOffState(day, month, parseInt(code));
                 }
-                const state = await StatesService.getState(code);
-                if (state instanceof StatesService.getModel() && type === TYPE_COUNTY) {
+
+                if (dayOffState && code.length === 7) {
                     return {
                         error: `Não é possível remover um feriado estadual de um município`,
                         code: FORBIDDEN
